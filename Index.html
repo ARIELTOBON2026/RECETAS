@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Gestión de Recetas</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+.hidden-section { display: none !important; }
+.active-nav { background-color: #4f46e5 !important; color: white !important; }
+.loader { border: 3px solid #f3f3f3; border-top: 3px solid #4f46e5; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="bg-gray-100">
+
+<!-- Debug Bar -->
+<div id="debug-bar" class="bg-yellow-100 border-b border-yellow-400 p-2 text-sm flex justify-between items-center">
+<span><i class="fas fa-tools mr-2"></i>Debug: <span id="debug-msg">Iniciando...</span></span>
+<button onclick="document.getElementById('debug-bar').style.display='none'" class="text-red-600 hover:text-red-800"><i class="fas fa-times"></i></button>
+</div>
+
+<!-- Navbar -->
+<nav class="bg-indigo-700 text-white p-4 shadow-lg">
+<div class="container mx-auto flex justify-between items-center">
+<h1 class="text-xl font-bold"><i class="fas fa-utensils mr-2"></i>Recetas Pro - Sistema de Gestión</h1>
+<span class="text-sm">v1.0.0 · 2026</span>
+</div>
+</nav>
+
+<div class="flex">
+<!-- Sidebar -->
+<aside class="bg-white w-64 min-h-screen shadow-md p-4">
+<ul class="space-y-2">
+<li><button onclick="mostrarSeccion('dashboard')" class="w-full text-left p-3 rounded hover:bg-gray-100 nav-btn active-nav" data-section="dashboard"><i class="fas fa-home mr-3"></i>Inicio / Dashboard</button></li>
+<li><button onclick="mostrarSeccion('ingredientes')" class="w-full text-left p-3 rounded hover:bg-gray-100 nav-btn" data-section="ingredientes"><i class="fas fa-carrot mr-3"></i>Ingredientes</button></li>
+<li><button onclick="mostrarSeccion('recetas')" class="w-full text-left p-3 rounded hover:bg-gray-100 nav-btn" data-section="recetas"><i class="fas fa-book mr-3"></i>Consultar recetas</button></li>
+<li><button onclick="abrirModalReceta()" class="w-full text-left p-3 rounded hover:bg-gray-100 nav-btn" data-section="crear-recetas"><i class="fas fa-plus-circle mr-3"></i>Crear receta</button></li>
+<li><button onclick="mostrarSeccion('categorias')" class="w-full text-left p-3 rounded hover:bg-gray-100 nav-btn" data-section="categorias"><i class="fas fa-tags mr-3"></i>Categorías</button></li>
+<li><button onclick="mostrarSeccion('consolidado')" class="w-full text-left p-3 rounded hover:bg-gray-100 nav-btn" data-section="consolidado"><i class="fas fa-chart-bar mr-3"></i>Consolidado</button></li>
+<li><button onclick="mostrarSeccion('reportes')" class="w-full text-left p-3 rounded hover:bg-gray-100 nav-btn" data-section="reportes"><i class="fas fa-file-alt mr-3"></i>Reportes</button></li>
+<li><button onclick="mostrarSeccion('configuracion')" class="w-full text-left p-3 rounded hover:bg-gray-100 nav-btn" data-section="configuracion"><i class="fas fa-cog mr-3"></i>Configuración</button></li>
+</ul>
+</aside>
+
+<!-- Main Content -->
+<main class="flex-1 p-6">
+<div id="alert-box" class="hidden mb-4 p-4 rounded text-white"></div>
+
+<!-- DASHBOARD -->
+<section id="sec-dashboard" class="section-content">
+<h2 class="text-2xl font-bold mb-4">📊 Dashboard</h2>
+<div class="grid grid-cols-3 gap-4 mb-6">
+<div class="bg-white p-6 rounded shadow">
+<h3 class="text-gray-500 text-sm">Total Recetas</h3>
+<p id="stat-recetas" class="text-3xl font-bold text-indigo-600">-</p>
+</div>
+<div class="bg-white p-6 rounded shadow">
+<h3 class="text-gray-500 text-sm">Total Ingredientes</h3>
+<p id="stat-ingredientes" class="text-3xl font-bold text-orange-600">-</p>
+</div>
+<div class="bg-white p-6 rounded shadow">
+<h3 class="text-gray-500 text-sm">Total Categorías</h3>
+<p id="stat-categorias" class="text-3xl font-bold text-purple-600">-</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-white p-6 rounded shadow">
+<h3 class="font-bold mb-3">📊 Recetas por categoría</h3>
+<div id="dashboard-por-categoria" class="space-y-2"></div>
+</div>
+<div class="bg-white p-6 rounded shadow">
+<h3 class="font-bold mb-3">🕐 Últimas recetas agregadas</h3>
+<div id="dashboard-ultimas" class="space-y-2"></div>
+</div>
+</div>
+</section>
+
+<!-- INGREDIENTES -->
+<section id="sec-ingredientes" class="section-content hidden-section">
+<div class="flex justify-between items-center mb-4">
+<h2 class="text-2xl font-bold">🥕 Gestión de Ingredientes</h2>
+<button onclick="abrirModalIngrediente()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"><i class="fas fa-plus mr-2"></i>Nuevo ingrediente</button>
+</div>
+<div class="bg-white rounded shadow overflow-x-auto mb-4">
+<div class="p-4 flex gap-2">
+<select id="ing-filtro-categoria" class="border rounded px-3 py-2" onchange="cargarIngredientes()">
+<option value="">Todas las categorías</option>
+</select>
+<button onclick="document.getElementById('ing-filtro-categoria').value=''; cargarIngredientes();" class="bg-gray-200 px-3 py-2 rounded hover:bg-gray-300">Limpiar</button>
+</div>
+<table class="w-full">
+<thead class="bg-gray-50">
+<tr>
+<th class="p-3 text-left">ID</th>
+<th class="p-3 text-left">Nombre</th>
+<th class="p-3 text-left">Categoría</th>
+<th class="p-3 text-left">Unidad</th>
+<th class="p-3 text-left">Estado</th>
+<th class="p-3 text-left">Acciones</th>
+</tr>
+</thead>
+<tbody id="tabla-ingredientes">
+<tr><td colspan="6" class="p-4 text-center"><div class="loader mx-auto"></div></td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<!-- RECETAS - CONSULTAR -->
+<section id="sec-recetas" class="section-content hidden-section">
+<div class="flex justify-between items-center mb-4">
+<h2 class="text-2xl font-bold">🔍 Consultar recetas</h2>
+<button onclick="abrirModalReceta()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"><i class="fas fa-plus mr-2"></i>Nueva receta</button>
+</div>
+<div class="bg-white rounded shadow p-4 mb-4">
+<div class="grid grid-cols-3 gap-4">
+<select id="rec-filtro-categoria" class="border rounded px-3 py-2">
+<option value="">Todas las categorías</option>
+</select>
+<select id="rec-filtro-dificultad" class="border rounded px-3 py-2">
+<option value="">Todas las dificultades</option>
+<option value="Fácil">Fácil</option>
+<option value="Intermedio">Intermedio</option>
+<option value="Avanzado">Avanzado</option>
+</select>
+<div class="flex gap-2">
+<button onclick="cargarRecetas()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 flex-1"><i class="fas fa-search mr-2"></i>Buscar</button>
+<button onclick="limpiarFiltrosRecetas()" class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300">Limpiar</button>
+</div>
+</div>
+</div>
+<div id="grid-recetas" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+</section>
+
+<!-- CATEGORÍAS -->
+<section id="sec-categorias" class="section-content hidden-section">
+<div class="flex justify-between items-center mb-4">
+<h2 class="text-2xl font-bold">🏷️ Gestión de Categorías</h2>
+<button onclick="abrirModalCategoria()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"><i class="fas fa-plus mr-2"></i>Nueva categoría</button>
+</div>
+<div class="bg-white rounded shadow overflow-x-auto">
+<table class="w-full">
+<thead class="bg-gray-50">
+<tr>
+<th class="p-3 text-left">ID</th>
+<th class="p-3 text-left">Nombre</th>
+<th class="p-3 text-left">Descripción</th>
+<th class="p-3 text-left">Recetas</th>
+<th class="p-3 text-left">Estado</th>
+<th class="p-3 text-left">Acciones</th>
+</tr>
+</thead>
+<tbody id="tabla-categorias"></tbody>
+</table>
+</div>
+</section>
+
+<!-- CONSOLIDADO -->
+<section id="sec-consolidado" class="section-content hidden-section">
+<h2 class="text-2xl font-bold mb-4">📊 Consolidado por categorías</h2>
+<div class="bg-white rounded shadow p-6">
+<div id="consolidado-content" class="space-y-4"></div>
+</div>
+</section>
+
+<!-- REPORTES -->
+<section id="sec-reportes" class="section-content hidden-section">
+<h2 class="text-2xl font-bold mb-4">📄 Generación de reportes</h2>
+<div class="bg-white rounded shadow p-6">
+<div class="grid grid-cols-2 gap-4 mb-4">
+<div>
+<label class="block text-sm font-medium mb-2">Tipo de reporte</label>
+<select id="reporte-tipo" class="w-full border rounded px-3 py-2">
+<option value="consolidado">Consolidado general</option>
+<option value="porCategoria">Recetas por categoría</option>
+<option value="ingredientes">Listado de ingredientes</option>
+<option value="detalle">Detalle de una receta</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium mb-2">Filtro específico</label>
+<input type="text" id="reporte-filtro" placeholder="Categoría o ID de receta" class="w-full border rounded px-3 py-2">
+</div>
+</div>
+<div class="flex gap-2 mb-4">
+<button onclick="generarReporte()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"><i class="fas fa-cog mr-2"></i>Generar</button>
+</div>
+<div class="border rounded p-4 bg-gray-50">
+<h3 class="font-bold mb-2">Vista previa</h3>
+<div id="reporte-preview" class="text-gray-500">Seleccione un tipo de reporte y presione Generar</div>
+</div>
+</div>
+</section>
+
+<!-- CONFIGURACIÓN -->
+<section id="sec-configuracion" class="section-content hidden-section">
+<h2 class="text-2xl font-bold mb-4">⚙️ Configuración del sistema</h2>
+<div class="bg-white rounded shadow p-6 max-w-2xl">
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-medium mb-2">Nombre de la aplicación</label>
+<input type="text" id="cfg-nombre-app" class="w-full border rounded px-3 py-2" readonly>
+</div>
+<div>
+<label class="block text-sm font-medium mb-2">Fecha del servidor</label>
+<input type="text" id="cfg-fecha" class="w-full border rounded px-3 py-2" readonly>
+</div>
+<div class="border-t pt-4">
+<h3 class="font-bold mb-3">🔧 Herramientas</h3>
+<button onclick="inicializarSistema()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full"><i class="fas fa-database mr-2"></i>🔄 Inicializar base de datos</button>
+</div>
+</div>
+</div>
+</section>
+</main>
+</div>
+
+<!-- MODAL INGREDIENTE -->
+<div id="modal-ingrediente" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+<div class="bg-white rounded-lg w-full max-w-md p-6">
+<h3 class="text-xl font-bold mb-4">Nuevo ingrediente</h3>
+<input type="hidden" id="ing-id">
+<div class="space-y-3">
+<div>
+<label class="block text-sm font-medium mb-1">Nombre <span class="text-red-500">*</span></label>
+<input type="text" id="ing-nombre" class="w-full border rounded px-3 py-2" placeholder="Nombre del ingrediente">
+</div>
+<div>
+<label class="block text-sm font-medium mb-1">Categoría <span class="text-red-500">*</span></label>
+<select id="ing-categoria" class="w-full border rounded px-3 py-2">
+<option value="">Seleccione categoría...</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1">Unidad de medida <span class="text-red-500">*</span></label>
+<select id="ing-unidad" class="w-full border rounded px-3 py-2">
+<option value="">Seleccione unidad...</option>
+<option value="g">Gramos (g)</option>
+<option value="kg">Kilogramos (kg)</option>
+<option value="lb">Libras (lb)</option>
+<option value="oz">Onzas (oz)</option>
+<option value="ml">Mililitros (ml)</option>
+<option value="lt">Litros (lt)</option>
+<option value="taza">Taza(s)</option>
+<option value="cda">Cucharada(s)</option>
+<option value="cdta">Cucharadita(s)</option>
+<option value="und">Unidad(es)</option>
+<option value="pizca">Pizca</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium mb-1">Descripción</label>
+<textarea id="ing-descripcion" class="w-full border rounded px-3 py-2" rows="2"></textarea>
+</div>
+</div>
+<div class="flex justify-end gap-2 mt-6">
+<button onclick="cerrarModal('modal-ingrediente')" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
+<button onclick="guardarIngrediente()" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"><i class="fas fa-save mr-2"></i>Guardar</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL CATEGORÍA -->
+<div id="modal-categoria" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+<div class="bg-white rounded-lg w-full max-w-md p-6">
+<h3 class="text-xl font-bold mb-4">Nueva categoría</h3>
+<input type="hidden" id="cat-id">
+<div class="space-y-3">
+<div>
+<label class="block text-sm font-medium mb-1">Nombre <span class="text-red-500">*</span></label>
+<input type="text" id="cat-nombre" class="w-full border rounded px-3 py-2" placeholder="Nombre de la categoría">
+</div>
+<div>
+<label class="block text-sm font-medium mb-1">Descripción</label>
+<textarea id="cat-descripcion" class="w-full border rounded px-3 py-2" rows="2"></textarea>
+</div>
+</div>
+<div class="flex justify-end gap-2 mt-6">
+<button onclick="cerrarModal('modal-categoria')" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancelar</button>
+<button onclick="guardarCategoria()" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"><i class="fas fa-save mr-2"></i>Guardar</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL RECETA -->
+<div id="modal-receta" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 overflow-y-auto">
+<div class="bg-white rounded-xl w-full max-w-4xl p-6 my-8 shadow-2xl border border-gray-100">
+  
+  <!-- Encabezado -->
+  <div class="flex justify-between items-center border-b pb-3 mb-6">
+    <h3 class="text-2xl font-bold text-indigo-700 flex items-center gap-2">
+      <i class="fas fa-utensils"></i> <span id="modal-receta-titulo">Nueva receta</span>
+    </h3>
+    <button onclick="cerrarModal('modal-receta')" class="text-gray-400 hover:text-gray-600 text-2xl font-bold transition">&times;</button>
+  </div>
+
+  <input type="hidden" id="rec-id">
+
+  <div class="space-y-6">
+    <!-- BLOQUE 1: Información General -->
+    <div class="bg-indigo-50/50 p-4 rounded-lg border border-indigo-100 space-y-4">
+      <h4 class="font-semibold text-indigo-900 text-sm tracking-wide uppercase flex items-center gap-2">
+        <i class="fas fa-info-circle"></i> Información General
+      </h4>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2">
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Nombre de la receta <span class="text-red-500">*</span></label>
+          <input type="text" id="rec-nombre" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none" placeholder="Ej: Arroz con Pollo Especial">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Categoría <span class="text-red-500">*</span></label>
+          <select id="rec-categoria" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"></select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Porciones <span class="text-red-500">*</span></label>
+          <input type="number" id="rec-porciones" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" min="1" value="1">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Prep. (min)</label>
+          <input type="number" id="rec-tiempo-prep" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" min="0" value="0">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Cocción (min)</label>
+          <input type="number" id="rec-tiempo-coccion" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" min="0" value="0">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Dificultad</label>
+          <select id="rec-dificultad" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+            <option value="Fácil">Fácil</option>
+            <option value="Intermedio">Intermedio</option>
+            <option value="Avanzado">Avanzado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Tipo Alimentación</label>
+          <select id="rec-tipo-alimentacion" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+            <option value="Tradicional">Tradicional</option>
+            <option value="Vegetariana">Vegetariana</option>
+            <option value="Vegana">Vegana</option>
+            <option value="Sin gluten">Sin gluten</option>
+            <option value="Sin lactosa">Sin lactosa</option>
+            <option value="Otra">Otra</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 uppercase mb-1">Breve Descripción</label>
+          <input type="text" id="rec-descripcion" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Pequeño resumen del plato...">
+        </div>
+      </div>
+    </div>
+
+    <!-- BLOQUE 2: Ingredientes -->
+    <div class="bg-orange-50/50 p-4 rounded-lg border border-orange-100 space-y-3">
+      <div class="flex justify-between items-center">
+        <h4 class="font-semibold text-orange-900 text-sm tracking-wide uppercase flex items-center gap-2">
+          <i class="fas fa-carrot text-orange-500"></i> Ingredientes
+        </h4>
+        <button type="button" onclick="agregarFilaIngrediente()" class="bg-orange-100 text-orange-800 hover:bg-orange-200 px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1">
+          <i class="fas fa-plus"></i> Agregar Fila
+        </button>
+      </div>
+
+      <div id="receta-ingredientes-lista" class="space-y-2"></div>
+    </div>
+
+    <!-- BLOQUE 3: Instrucciones y Multimedia con Vistas Previas -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="md:col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col">
+        <h4 class="font-semibold text-gray-800 text-sm tracking-wide uppercase mb-2 flex items-center gap-2">
+          <i class="fas fa-list-ol text-indigo-600"></i> Instrucciones de Preparación
+        </h4>
+        <textarea id="rec-instrucciones" class="w-full flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" rows="6" placeholder="1. Cortar los vegetales...\n2. Saltear a fuego medio..."></textarea>
+      </div>
+
+      <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3 flex flex-col justify-between">
+        <div class="space-y-3">
+          <h4 class="font-semibold text-gray-800 text-sm tracking-wide uppercase flex items-center gap-2">
+            <i class="fas fa-link text-indigo-600"></i> Multimedia
+          </h4>
+          
+          <!-- URL Imagen y Vista Previa -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">URL Imagen</label>
+            <input type="text" id="rec-foto" oninput="actualizarVistaPreviaImagen()" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="https://...">
+            <div id="preview-imagen-container" class="mt-2 w-full h-32 bg-white border border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden relative shadow-inner">
+              <span id="preview-imagen-placeholder" class="text-xs text-gray-400 flex flex-col items-center gap-1">
+                <i class="fas fa-image text-lg"></i> Sin vista previa
+              </span>
+              <img id="preview-imagen-img" src="" alt="Vista previa" class="w-full h-full object-cover hidden" onerror="manejarErrorImagen()">
+            </div>
+          </div>
+
+          <!-- Link YouTube y Vista Previa -->
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Link YouTube</label>
+            <input type="text" id="rec-youtube" oninput="actualizarVistaPreviaVideo()" class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="https://youtube.com/...">
+            <div id="preview-video-container" class="mt-2 w-full h-32 bg-white border border-dashed border-gray-300 rounded-lg flex items-center justify-center overflow-hidden relative shadow-inner">
+              <span id="preview-video-placeholder" class="text-xs text-gray-400 flex flex-col items-center gap-1">
+                <i class="fab fa-youtube text-lg text-red-500"></i> Sin video vinculado
+              </span>
+              <div id="preview-video-wrapper" class="w-full h-full hidden"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pie del modal (Acciones) -->
+  <div class="flex justify-end gap-3 border-t pt-4 mt-6">
+    <button onclick="cerrarModal('modal-receta')" class="px-5 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition text-sm">Cancelar</button>
+    <button onclick="guardarReceta()" class="px-5 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition shadow-md text-sm flex items-center gap-2">
+      <i class="fas fa-save"></i> Guardar Receta
+    </button>
+  </div>
+</div>
+</div>
+
+<!-- MODAL VER RECETA -->
+<div id="modal-ver-receta" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 overflow-y-auto">
+<div class="bg-white rounded-lg w-full max-w-2xl p-6 my-8 shadow-xl">
+<div class="flex justify-between items-center border-b pb-3 mb-4">
+<h3 id="ver-nombre-receta" class="text-2xl font-bold text-indigo-700"></h3>
+<button onclick="cerrarModal('modal-ver-receta')" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+</div>
+<div class="space-y-4">
+<div class="flex flex-wrap gap-4 text-sm text-gray-600 bg-gray-50 p-3 rounded">
+<div><i class="fas fa-tags mr-1 text-indigo-500"></i><strong>Categoría:</strong> <span id="ver-categoria">-</span></div>
+<div><i class="fas fa-users mr-1 text-indigo-500"></i><strong>Porciones:</strong> <span id="ver-porciones">-</span></div>
+<div><i class="fas fa-clock mr-1 text-indigo-500"></i><strong>Preparación:</strong> <span id="ver-tiempo">-</span> min</div>
+<div><i class="fas fa-signal mr-1 text-indigo-500"></i><strong>Dificultad:</strong> <span id="ver-dificultad">-</span></div>
+</div>
+<div>
+<h4 class="font-bold text-gray-700 mb-2"><i class="fas fa-carrot mr-2 text-orange-500"></i>Ingredientes</h4>
+<ul id="ver-lista-ingredientes" class="list-disc list-inside space-y-1 bg-orange-50 p-3 rounded text-gray-700"></ul>
+</div>
+<div>
+<h4 class="font-bold text-gray-700 mb-2"><i class="fas fa-clipboard-list mr-2 text-indigo-500"></i>Instrucciones de preparación</h4>
+<div id="ver-instrucciones" class="bg-gray-50 p-4 rounded text-gray-700 whitespace-pre-line border"></div>
+</div>
+</div>
+<div class="flex justify-end mt-6">
+<button onclick="cerrarModal('modal-ver-receta')" class="px-5 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Cerrar</button>
+</div>
+</div>
+</div>
+
+<script>
+let listaIngredientesGlobal = [];
+
+// ==================== MOCK BACKEND PARA ENTORNO WEB STANDALONE ====================
+if (typeof google === 'undefined' || !google.script) {
+  window.google = {
+    script: {
+      run: {
+        withSuccessHandler: function(successCallback) {
+          return {
+            withFailureHandler: function(failureCallback) {
+              return new Proxy({}, {
+                get: function(target, prop) {
+                  return function(...args) {
+                    try {
+                      const res = mockServerBackend(prop, args[0]);
+                      if (res && res.error) {
+                        failureCallback(new Error(res.error));
+                      } else {
+                        successCallback(res);
+                      }
+                    } catch (err) {
+                      failureCallback(err);
+                    }
+                  };
+                }
+              });
+            }
+          };
+        }
+      }
+    }
+  };
+}
+
+// Base de datos simulada en localStorage para pruebas directas en el navegador
+function getMockDB() {
+  let db = localStorage.getItem('recetas_pro_db');
+  if (!db) {
+    const initialDB = {
+      categorias: [
+        { id: 'cat-1', nombre: 'Desayunos', descripcion: 'Platos matutinos', activo: 'SI' },
+        { id: 'cat-2', nombre: 'Almuerzos', descripcion: 'Platos fuertes', activo: 'SI' },
+        { id: 'cat-3', nombre: 'Postres', descripcion: 'Dulces y repostería', activo: 'SI' }
+      ],
+      ingredientes: [
+        { id: 'ing-1', nombre: 'Arroz', categoria: 'Almuerzos', unidadMedida: 'g', descripcion: 'Arroz blanco', activo: 'SI' },
+        { id: 'ing-2', nombre: 'Pollo', categoria: 'Almuerzos', unidadMedida: 'g', descripcion: 'Pechuga de pollo', activo: 'SI' },
+        { id: 'ing-3', nombre: 'Huevo', categoria: 'Desayunos', unidadMedida: 'und', descripcion: 'Huevos frescos', activo: 'SI' },
+        { id: 'ing-4', nombre: 'Azúcar', categoria: 'Postres', unidadMedida: 'g', descripcion: 'Azúcar refinada', activo: 'SI' }
+      ],
+      recetas: [
+        {
+          id: 'rec-1',
+          nombre: 'Arroz con Pollo',
+          categoria: 'Almuerzos',
+          porciones: 4,
+          tiempoPreparacion: 20,
+          tiempoCoccion: 35,
+          tiempoTotal: 55,
+          dificultad: 'Intermedio',
+          tipoAlimentacion: 'Tradicional',
+          descripcion: 'Clásico plato casero',
+          foto: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=600&q=80',
+          linkYoutube: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          instrucciones: '1. Cocinar el arroz.\n2. Desmechar el pollo.\n3. Mezclar todo con vegetales.',
+          ingredientes: [
+            { idIngrediente: 'ing-1', name: 'Arroz', cantidad: 500, unidadMedida: 'g' },
+            { idIngrediente: 'ing-2', name: 'Pollo', cantidad: 400, unidadMedida: 'g' }
+          ]
+        }
+      ]
+    };
+    localStorage.setItem('recetas_pro_db', JSON.stringify(initialDB));
+    return initialDB;
+  }
+  return JSON.parse(db);
+}
+
+function saveMockDB(db) {
+  localStorage.setItem('recetas_pro_db', JSON.stringify(db));
+}
+
+function mockServerBackend(funcion, param) {
+  const db = getMockDB();
+  
+  if (funcion === 'inicializarBD') {
+    return { ok: true, mensaje: 'Base de datos inicializada correctamente (Modo Web)' };
+  }
+  
+  if (funcion === 'obtenerConfiguracion') {
+    return {
+      ok: true,
+      nombreApp: 'Sistema de Gestión de Recetas Pro',
+      fechaServidor: new Date().toLocaleString()
+    };
+  }
+  
+  if (funcion === 'obtenerDashboard') {
+    let porCat = {};
+    db.categorias.forEach(c => { porCat[c.nombre] = 0; });
+    db.recetas.forEach(r => {
+      if (porCat[r.categoria] !== undefined) porCat[r.categoria]++;
+      else porCat[r.categoria] = 1;
+    });
+    return {
+      ok: true,
+      totalRecetas: db.recetas.length,
+      totalIngredientes: db.ingredientes.length,
+      totalCategorias: db.categorias.length,
+      porCategoria: porCat,
+      ultimas: db.recetas.slice(-3).reverse()
+    };
+  }
+  
+  if (funcion === 'consultarCategorias') {
+    let datos = db.categorias;
+    if (param === true) {
+      datos = datos.filter(c => c.activo === 'SI');
+    }
+    // Calcular total de recetas por categoría
+    datos = datos.map(c => {
+      let count = db.recetas.filter(r => r.categoria === c.nombre).length;
+      return { ...c, totalRecetas: count };
+    });
+    return { ok: true, datos: datos };
+  }
+  
+  if (funcion === 'guardarCategoria') {
+    if (!param.id) {
+      const newId = 'cat-' + Date.now();
+      db.categorias.push({ id: newId, nombre: param.nombre, descripcion: param.descripcion || '', activo: 'SI' });
+    } else {
+      const idx = db.categorias.findIndex(c => c.id === param.id);
+      if (idx >= 0) {
+        db.categorias[idx].nombre = param.nombre;
+        db.categorias[idx].descripcion = param.descripcion || '';
+      }
+    }
+    saveMockDB(db);
+    return { ok: true, mensaje: 'Categoría guardada con éxito' };
+  }
+  
+  if (funcion === 'eliminarCategoria') {
+    db.categorias = db.categorias.filter(c => c.id !== param);
+    saveMockDB(db);
+    return { ok: true, mensaje: 'Categoría eliminada' };
+  }
+  
+  if (funcion === 'consultarIngredientes') {
+    let datos = db.ingredientes;
+    if (param && param.soloActivos) {
+      datos = datos.filter(i => i.activo === 'SI');
+    }
+    if (param && param.categoria) {
+      datos = datos.filter(i => i.categoria === param.categoria);
+    }
+    return { ok: true, datos: datos };
+  }
+  
+  if (funcion === 'guardarIngrediente') {
+    if (!param.id) {
+      const newId = 'ing-' + Date.now();
+      db.ingredientes.push({
+        id: newId,
+        nombre: param.nombre,
+        categoria: param.categoria,
+        unidadMedida: param.unidadMedida,
+        descripcion: param.descripcion || '',
+        activo: 'SI'
+      });
+    } else {
+      const idx = db.ingredientes.findIndex(i => i.id === param.id);
+      if (idx >= 0) {
+        db.ingredientes[idx].nombre = param.nombre;
+        db.ingredientes[idx].categoria = param.categoria;
+        db.ingredientes[idx].unidadMedida = param.unidadMedida;
+        db.ingredientes[idx].descripcion = param.descripcion || '';
+      }
+    }
+    saveMockDB(db);
+    return { ok: true, mensaje: 'Ingrediente guardado con éxito' };
+  }
+  
+  if (funcion === 'eliminarIngrediente') {
+    db.ingredientes = db.ingredientes.filter(i => i.id !== param);
+    saveMockDB(db);
+    return { ok: true, mensaje: 'Ingrediente eliminado' };
+  }
+  
+  if (funcion === 'consultarRecetas') {
+    let datos = db.recetas;
+    if (param) {
+      if (param.categoria) datos = datos.filter(r => r.categoria === param.categoria);
+      if (param.dificultad) datos = datos.filter(r => r.dificultad === param.dificultad);
+    }
+    return { ok: true, datos: datos };
+  }
+  
+  if (funcion === 'guardarReceta') {
+    const tiempoTotal = (param.tiempoPreparacion || 0) + (param.tiempoCoccion || 0);
+    // Resolver nombres de ingredientes
+    const ingredientesConNombre = (param.ingredientes || []).map(item => {
+      const ingFound = db.ingredientes.find(i => i.id === item.idIngrediente);
+      return {
+        idIngrediente: item.idIngrediente,
+        name: ingFound ? ingFound.nombre : 'Ingrediente',
+        cantidad: item.cantidad,
+        unidadMedida: item.unidadMedida,
+        observaciones: item.observaciones || ''
+      };
+    });
+
+    if (!param.id) {
+      const newId = 'rec-' + Date.now();
+      db.recetas.push({
+        id: newId,
+        nombre: param.nombre,
+        categoria: param.categoria,
+        porciones: param.porciones,
+        tiempoPreparacion: param.tiempoPreparacion,
+        tiempoCoccion: param.tiempoCoccion,
+        tiempoTotal: tiempoTotal,
+        dificultad: param.dificultad,
+        tipoAlimentacion: param.tipoAlimentacion,
+        descripcion: param.descripcion,
+        foto: param.foto,
+        linkYoutube: param.linkYoutube,
+        instrucciones: param.instrucciones,
+        ingredientes: ingredientesConNombre
+      });
+    } else {
+      const idx = db.recetas.findIndex(r => r.id === param.id);
+      if (idx >= 0) {
+        db.recetas[idx] = {
+          ...db.recetas[idx],
+          nombre: param.nombre,
+          categoria: param.categoria,
+          porciones: param.porciones,
+          tiempoPreparacion: param.tiempoPreparacion,
+          tiempoCoccion: param.tiempoCoccion,
+          tiempoTotal: tiempoTotal,
+          dificultad: param.dificultad,
+          tipoAlimentacion: param.tipoAlimentacion,
+          descripcion: param.descripcion,
+          foto: param.foto,
+          linkYoutube: param.linkYoutube,
+          instrucciones: param.instrucciones,
+          ingredientes: ingredientesConNombre
+        };
+      }
+    }
+    saveMockDB(db);
+    return { ok: true, mensaje: 'Receta guardada con éxito' };
+  }
+  
+  if (funcion === 'obtenerRecetaDetalle') {
+    const r = db.recetas.find(rec => rec.id === param);
+    return { ok: true, datos: r || {} };
+  }
+  
+  if (funcion === 'eliminarReceta') {
+    db.recetas = db.recetas.filter(r => r.id !== param);
+    saveMockDB(db);
+    return { ok: true, mensaje: 'Receta eliminada' };
+  }
+  
+  if (funcion === 'obtenerDatosReporte') {
+    let datos = db.recetas;
+    if (param && param.tipo === 'ingredientes') {
+      datos = db.ingredientes;
+    }
+    return { ok: true, datos: datos };
+  }
+  
+  return { ok: false, mensaje: 'Función desconocida: ' + funcion };
+}
+
+// ==================== DEBUG ====================
+function setDebug(msg) {
+  document.getElementById('debug-msg').innerText = msg;
+  console.log('[DEBUG]', new Date().toLocaleTimeString(), '-', msg);
+}
+
+// ==================== NAVEGACIÓN ====================
+function mostrarSeccion(seccion) {
+  document.querySelectorAll('.section-content').forEach(el => el.classList.add('hidden-section'));
+  document.getElementById('sec-' + seccion).classList.remove('hidden-section');
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active-nav'));
+  const btn = document.querySelector('.nav-btn[data-section="' + seccion + '"]');
+  if (btn) btn.classList.add('active-nav');
+  
+  if(seccion === 'dashboard') cargarDashboard();
+  if(seccion === 'ingredientes') { cargarFiltroIngredientes(); cargarIngredientes(); }
+  if(seccion === 'recetas') { cargarFiltroRecetas(); cargarRecetas(); }
+  if(seccion === 'categorias') cargarCategorias();
+  if(seccion === 'consolidado') cargarConsolidado();
+  if(seccion === 'reportes') cargarOpcionesReportes();
+  if(seccion === 'configuracion') cargarConfiguracion();
+}
+
+// ==================== UTILIDADES ====================
+function mostrarAlerta(msg, tipo) {
+  tipo = tipo || 'success';
+  const box = document.getElementById('alert-box');
+  box.className = 'mb-4 p-4 rounded text-white ' + (tipo === 'success' ? 'bg-green-600' : 'bg-red-600');
+  box.innerText = msg;
+  box.classList.remove('hidden');
+  setTimeout(function() { box.classList.add('hidden'); }, 4000);
+}
+
+function cerrarModal(id) {
+  document.getElementById(id).classList.add('hidden');
+  document.getElementById(id).classList.remove('flex');
+}
+
+// ==================== VISTAS PREVIAS MULTIMEDIA ====================
+function actualizarVistaPreviaImagen() {
+  const url = document.getElementById('rec-foto').value.trim();
+  const imgEl = document.getElementById('preview-imagen-img');
+  const placeholderEl = document.getElementById('preview-imagen-placeholder');
+
+  if (!url) {
+    imgEl.src = '';
+    imgEl.classList.add('hidden');
+    placeholderEl.classList.remove('hidden');
+    return;
+  }
+
+  imgEl.src = url;
+  imgEl.classList.remove('hidden');
+  placeholderEl.classList.add('hidden');
+}
+
+function manejarErrorImagen() {
+  const imgEl = document.getElementById('preview-imagen-img');
+  const placeholderEl = document.getElementById('preview-imagen-placeholder');
+  imgEl.src = '';
+  imgEl.classList.add('hidden');
+  placeholderEl.classList.remove('hidden');
+  placeholderEl.innerHTML = '<i class="fas fa-exclamation-triangle text-lg text-amber-500"></i> No se pudo cargar';
+}
+
+function extraerIdYoutube(url) {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+}
+
+function actualizarVistaPreviaVideo() {
+  const url = document.getElementById('rec-youtube').value.trim();
+  const wrapperEl = document.getElementById('preview-video-wrapper');
+  const placeholderEl = document.getElementById('preview-video-placeholder');
+
+  const videoId = extraerIdYoutube(url);
+
+  if (!videoId) {
+    wrapperEl.innerHTML = '';
+    wrapperEl.classList.add('hidden');
+    placeholderEl.classList.remove('hidden');
+    return;
+  }
+
+  placeholderEl.classList.add('hidden');
+  wrapperEl.classList.remove('hidden');
+  wrapperEl.innerHTML = '<iframe class="w-full h-full rounded-lg" src="https://www.youtube.com/embed/' + videoId + '" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+}
+
+function limpiarVistasPrevias() {
+  document.getElementById('rec-foto').value = '';
+  actualizarVistaPreviaImagen();
+  document.getElementById('preview-imagen-placeholder').innerHTML = '<i class="fas fa-image text-lg"></i> Sin vista previa';
+
+  document.getElementById('rec-youtube').value = '';
+  actualizarVistaPreviaVideo();
+}
+
+// ==================== BACKEND CALLS ====================
+function llamarBackend(funcion, params, callback) {
+  setDebug('Llamando a ' + funcion + '...');
+  google.script.run
+    .withSuccessHandler(function(res) {
+      setDebug('✅ ' + funcion + ' respondió');
+      if(res && res.ok) {
+        callback(res);
+      } else {
+        mostrarAlerta((res ? res.mensaje : 'Error en la operación'), 'error');
+      }
+    })
+    .withFailureHandler(function(err) {
+      setDebug('❌ Error: ' + err.message);
+      mostrarAlerta('Error de conexión: ' + err.message, 'error');
+    })
+    [funcion](params);
+}
+
+// ==================== DASHBOARD ====================
+function cargarDashboard() {
+  setDebug('Cargando dashboard...');
+  llamarBackend('obtenerDashboard', null, function(res) {
+    document.getElementById('stat-recetas').innerText = res.totalRecetas || 0;
+    document.getElementById('stat-ingredientes').innerText = res.totalIngredientes || 0;
+    document.getElementById('stat-categorias').innerText = res.totalCategorias || 0;
+    
+    const divCat = document.getElementById('dashboard-por-categoria');
+    if(res.porCategoria && Object.keys(res.porCategoria).length > 0) {
+      divCat.innerHTML = Object.keys(res.porCategoria).map(cat => 
+        '<div class="flex justify-between items-center p-2 bg-gray-50 rounded"><span>' + cat + '</span><span class="font-bold">' + res.porCategoria[cat] + '</span></div>'
+      ).join('');
+    } else {
+      divCat.innerHTML = '<p class="text-gray-400">No hay recetas</p>';
+    }
+    
+    const divUlt = document.getElementById('dashboard-ultimas');
+    if(res.ultimas && res.ultimas.length > 0) {
+      divUlt.innerHTML = res.ultimas.map(r => 
+        '<div class="p-2 bg-gray-50 rounded"><div class="font-medium">' + r.nombre + '</div><div class="text-sm text-gray-500">' + r.categoria + '</div></div>'
+      ).join('');
+    } else {
+      divUlt.innerHTML = '<p class="text-gray-400">No hay recetas recientes</p>';
+    }
+    setDebug('✅ Dashboard cargado');
+  });
+}
+
+// ==================== INGREDIENTES ====================
+function cargarFiltroIngredientes() {
+  llamarBackend('consultarCategorias', true, function(res) {
+    const select = document.getElementById('ing-filtro-categoria');
+    if(!select) return;
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">Todas las categorías</option>';
+    if(res.datos) {
+      res.datos.forEach(c => {
+        select.innerHTML += '<option value="' + c.nombre + '">' + c.nombre + '</option>';
+      });
+    }
+    select.value = currentVal;
+  });
+}
+
+function cargarIngredientes() {
+  setDebug('Cargando ingredientes...');
+  const tbody = document.getElementById('tabla-ingredientes');
+  tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center"><div class="loader mx-auto"></div></td></tr>';
+  
+  const filtros = {
+    soloActivos: false,
+    categoria: document.getElementById('ing-filtro-categoria').value || null
+  };
+  
+  llamarBackend('consultarIngredientes', filtros, function(res) {
+    if(!res.datos || res.datos.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">No hay ingredientes registrados</td></tr>';
+      setDebug('✅ 0 ingredientes');
+      return;
+    }
+    let html = '';
+    for(let i = 0; i < res.datos.length; i++) {
+      const ing = res.datos[i];
+      html += '<tr class="border-b hover:bg-gray-50">';
+      html += '<td class="p-3 text-sm font-mono">' + ing.id + '</td>';
+      html += '<td class="p-3 font-medium">' + ing.nombre + '</td>';
+      html += '<td class="p-3">' + (ing.categoria || '-') + '</td>';
+      html += '<td class="p-3">' + (ing.unidadMedida || '-') + '</td>';
+      html += '<td class="p-3"><span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">' + (ing.activo === 'SI' ? 'Activo' : 'Inactivo') + '</span></td>';
+      html += '<td class="p-3">';
+      html += '<button onclick="editarIngrediente(\'' + ing.id + '\')" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></button>';
+      html += '<button onclick="eliminarIngrediente(\'' + ing.id + '\')" class="text-red-600 hover:text-red-800" title="Eliminar"><i class="fas fa-trash"></i></button>';
+      html += '</td></tr>';
+    }
+    tbody.innerHTML = html;
+    setDebug('✅ ' + res.datos.length + ' ingredientes cargados');
+  });
+}
+
+function abrirModalIngrediente() {
+  document.getElementById('ing-id').value = '';
+  document.getElementById('ing-nombre').value = '';
+  document.getElementById('ing-unidad').value = '';
+  document.getElementById('ing-descripcion').value = '';
+  
+  cargarCategoriasEnSelect('ing-categoria');
+
+  document.getElementById('modal-ingrediente').classList.remove('hidden');
+  document.getElementById('modal-ingrediente').classList.add('flex');
+}
+
+function editarIngrediente(id) {
+  llamarBackend('consultarIngredientes', {}, function(res) {
+    const ing = res.datos.find(i => i.id === id);
+    if(ing) {
+      document.getElementById('ing-id').value = ing.id;
+      document.getElementById('ing-nombre').value = ing.nombre;
+      document.getElementById('ing-unidad').value = ing.unidadMedida || '';
+      document.getElementById('ing-descripcion').value = ing.descripcion || '';
+      
+      cargarCategoriasEnSelect('ing-categoria', ing.categoria);
+
+      document.getElementById('modal-ingrediente').classList.remove('hidden');
+      document.getElementById('modal-ingrediente').classList.add('flex');
+    }
+  });
+}
+
+function guardarIngrediente() {
+  const datos = {
+    id: document.getElementById('ing-id').value,
+    nombre: document.getElementById('ing-nombre').value,
+    categoria: document.getElementById('ing-categoria').value,
+    unidadMedida: document.getElementById('ing-unidad').value,
+    descripcion: document.getElementById('ing-descripcion').value
+  };
+  if(!datos.nombre.trim()) { mostrarAlerta('El nombre es obligatorio', 'error'); return; }
+  if(!datos.categoria) { mostrarAlerta('Debe seleccionar una categoría', 'error'); return; }
+  if(!datos.unidadMedida) { mostrarAlerta('Debe seleccionar una unidad de medida', 'error'); return; }
+
+  llamarBackend('guardarIngrediente', datos, function(res) {
+    mostrarAlerta(res.mensaje);
+    cerrarModal('modal-ingrediente');
+    cargarIngredientes();
+  });
+}
+
+function eliminarIngrediente(id) {
+  if(confirm('¿Está seguro de eliminar este ingrediente?')) {
+    llamarBackend('eliminarIngrediente', id, function(res) {
+      mostrarAlerta(res.mensaje);
+      cargarIngredientes();
+    });
+  }
+}
+
+// ==================== CATEGORÍAS ====================
+function cargarCategorias() {
+  setDebug('Cargando categorías...');
+  llamarBackend('consultarCategorias', false, function(res) {
+    const tbody = document.getElementById('tabla-categorias');
+    if(!res.datos || res.datos.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">No hay categorías</td></tr>';
+      setDebug('✅ 0 categorías');
+      return;
+    }
+    let html = '';
+    for(let i = 0; i < res.datos.length; i++) {
+      const cat = res.datos[i];
+      html += '<tr class="border-b hover:bg-gray-50">';
+      html += '<td class="p-3 text-sm font-mono">' + cat.id + '</td>';
+      html += '<td class="p-3 font-medium">' + cat.nombre + '</td>';
+      html += '<td class="p-3">' + (cat.descripcion || '-') + '</td>';
+      html += '<td class="p-3">' + cat.totalRecetas + '</td>';
+      html += '<td class="p-3"><span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">' + (cat.activo === 'SI' ? 'Activo' : 'Inactivo') + '</span></td>';
+      html += '<td class="p-3">';
+      html += '<button onclick="editarCategoria(\'' + cat.id + '\')" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></button>';
+      html += '<button onclick="eliminarCategoria(\'' + cat.id + '\')" class="text-red-600 hover:text-red-800" title="Eliminar"><i class="fas fa-trash"></i></button>';
+      html += '</td></tr>';
+    }
+    tbody.innerHTML = html;
+    setDebug('✅ ' + res.datos.length + ' categorías cargadas');
+  });
+}
+
+function abrirModalCategoria() {
+  document.getElementById('cat-id').value = '';
+  document.getElementById('cat-nombre').value = '';
+  document.getElementById('cat-descripcion').value = '';
+  document.getElementById('modal-categoria').classList.remove('hidden');
+  document.getElementById('modal-categoria').classList.add('flex');
+}
+
+function editarCategoria(id) {
+  llamarBackend('consultarCategorias', false, function(res) {
+    const cat = res.datos.find(c => c.id === id);
+    if(cat) {
+      document.getElementById('cat-id').value = cat.id;
+      document.getElementById('cat-nombre').value = cat.nombre;
+      document.getElementById('cat-descripcion').value = cat.descripcion || '';
+      document.getElementById('modal-categoria').classList.remove('hidden');
+      document.getElementById('modal-categoria').classList.add('flex');
+    }
+  });
+}
+
+function guardarCategoria() {
+  const datos = {
+    id: document.getElementById('cat-id').value,
+    nombre: document.getElementById('cat-nombre').value,
+    descripcion: document.getElementById('cat-descripcion').value
+  };
+  if(!datos.nombre.trim()) { mostrarAlerta('El nombre es obligatorio', 'error'); return; }
+  llamarBackend('guardarCategoria', datos, function(res) {
+    mostrarAlerta(res.mensaje);
+    cerrarModal('modal-categoria');
+    cargarCategorias();
+  });
+}
+
+function eliminarCategoria(id) {
+  if(confirm('¿Está seguro de eliminar esta categoría?')) {
+    llamarBackend('eliminarCategoria', id, function(res) {
+      mostrarAlerta(res.mensaje);
+      cargarCategorias();
+    });
+  }
+}
+
+// ==================== RECETAS ====================
+function cargarFiltroRecetas() {
+  llamarBackend('consultarCategorias', true, function(res) {
+    const select = document.getElementById('rec-filtro-categoria');
+    if(!select) return;
+    const currentVal = select.value;
+    select.innerHTML = '<option value="">Todas las categorías</option>';
+    if(res.datos) {
+      res.datos.forEach(c => {
+        select.innerHTML += '<option value="' + c.nombre + '">' + c.nombre + '</option>';
+      });
+    }
+    select.value = currentVal;
+  });
+}
+
+function cargarRecetas() {
+  setDebug('Cargando recetas...');
+  const grid = document.getElementById('grid-recetas');
+  grid.innerHTML = '<div class="col-span-full text-center p-8"><div class="loader mx-auto"></div></div>';
+  const filtros = {
+    categoria: document.getElementById('rec-filtro-categoria').value || null,
+    dificultad: document.getElementById('rec-filtro-dificultad').value || null
+  };
+  llamarBackend('consultarRecetas', filtros, function(res) {
+    if(!res.datos || res.datos.length === 0) {
+      grid.innerHTML = '<div class="col-span-full text-center p-8 text-gray-400">No hay recetas registradas</div>';
+      setDebug('✅ 0 recetas');
+      return;
+    }
+    let html = '';
+    for(let i = 0; i < res.datos.length; i++) {
+      const r = res.datos[i];
+      html += '<div class="bg-white rounded shadow p-4 hover:shadow-lg transition">';
+      html += '<h3 class="font-bold text-lg mb-1">' + r.nombre + '</h3>';
+      html += '<p class="text-gray-500 text-sm mb-2">' + r.categoria + '</p>';
+      html += '<div class="flex justify-between items-center text-sm text-gray-600 mb-2">';
+      html += '<span><i class="fas fa-clock mr-1"></i>' + r.tiempoTotal + ' min</span>';
+      html += '<span><i class="fas fa-users mr-1"></i>' + r.porciones + ' porciones</span>';
+      html += '</div>';
+      html += '<div class="flex justify-between items-center">';
+      html += '<span class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded font-semibold">' + r.dificultad + '</span>';
+      html += '<div>';
+      html += '<button onclick="verReceta(\'' + r.id + '\')" class="text-blue-600 hover:text-blue-800 mr-2" title="Ver"><i class="fas fa-eye"></i></button>';
+      html += '<button onclick="editarReceta(\'' + r.id + '\')" class="text-green-600 hover:text-green-800 mr-2" title="Editar"><i class="fas fa-edit"></i></button>';
+      html += '<button onclick="eliminarReceta(\'' + r.id + '\')" class="text-red-600 hover:text-red-800" title="Eliminar"><i class="fas fa-trash"></i></button>';
+      html += '</div></div></div>';
+    }
+    grid.innerHTML = html;
+    setDebug('✅ ' + res.datos.length + ' recetas cargadas');
+  });
+}
+
+function limpiarFiltrosRecetas() {
+  document.getElementById('rec-filtro-categoria').value = '';
+  document.getElementById('rec-filtro-dificultad').value = '';
+  cargarRecetas();
+}
+
+function cargarCacheIngredientes(callback) {
+  llamarBackend('consultarIngredientes', {soloActivos: true}, function(res) {
+    listaIngredientesGlobal = res.datos || [];
+    if(callback) callback();
+  });
+}
+
+function abrirModalReceta() {
+  document.getElementById('rec-id').value = '';
+  document.getElementById('rec-nombre').value = '';
+  document.getElementById('rec-porciones').value = '1';
+  document.getElementById('rec-tiempo-prep').value = '0';
+  document.getElementById('rec-tiempo-coccion').value = '0';
+  document.getElementById('rec-dificultad').value = 'Fácil';
+  document.getElementById('rec-tipo-alimentacion').value = 'Tradicional';
+  document.getElementById('rec-descripcion').value = '';
+  document.getElementById('rec-instrucciones').value = '';
+  document.getElementById('receta-ingredientes-lista').innerHTML = '';
+  
+  limpiarVistasPrevias();
+  
+  cargarCategoriasEnSelect('rec-categoria');
+  cargarCacheIngredientes(function() {
+    agregarFilaIngrediente();
+    document.getElementById('modal-receta').classList.remove('hidden');
+    document.getElementById('modal-receta').classList.add('flex');
+  });
+}
+
+function cargarCategoriasEnSelect(selectId, valorSeleccionado) {
+  llamarBackend('consultarCategorias', true, function(res) {
+    const select = document.getElementById(selectId);
+    if(!select) return;
+    select.innerHTML = '<option value="">Seleccione categoría...</option>';
+    if(res.datos) {
+      res.datos.forEach(function(cat) {
+        const option = document.createElement('option');
+        option.value = cat.nombre;
+        option.innerText = cat.nombre;
+        if(valorSeleccionado && cat.nombre === valorSeleccionado) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      });
+    }
+  });
+}
+
+function agregarFilaIngrediente(ingSeleccionado) {
+  const div = document.getElementById('receta-ingredientes-lista');
+  const row = document.createElement('div');
+  row.className = 'flex gap-2 items-center bg-white p-2 rounded-lg border border-orange-200 shadow-sm';
+  
+  let optionsHtml = '<option value="">Seleccione ingrediente...</option>';
+  listaIngredientesGlobal.forEach(function(ing) {
+    const selected = (ingSeleccionado && ingSeleccionado.idIngrediente === ing.id) ? 'selected' : '';
+    optionsHtml += '<option value="' + ing.id + '" data-unidad="' + (ing.unidadMedida || '') + '" ' + selected + '>' + ing.nombre + '</option>';
+  });
+
+  const cantVal = ingSeleccionado ? ingSeleccionado.cantidad : '';
+  const uniVal = ingSeleccionado ? ingSeleccionado.unidadMedida : '';
+
+  row.innerHTML = 
+    '<select class="ing-select border border-gray-300 rounded-md px-3 py-1.5 text-sm flex-1 focus:ring-2 focus:ring-orange-500 outline-none bg-white">' + optionsHtml + '</select>' +
+    '<input type="number" placeholder="Cant." value="' + cantVal + '" class="ing-cant border border-gray-300 rounded-md px-2 py-1.5 text-sm w-24 text-center focus:ring-2 focus:ring-orange-500 outline-none" step="0.01">' +
+    '<input type="text" placeholder="Unidad" value="' + uniVal + '" class="ing-unidad border border-gray-200 bg-gray-100 rounded-md px-2 py-1.5 text-sm w-24 text-center text-gray-600" readonly>' +
+    '<button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-md transition" title="Quitar ingrediente"><i class="fas fa-trash-alt"></i></button>';
+    
+  div.appendChild(row);
+
+  const select = row.querySelector('.ing-select');
+  select.onchange = function() {
+    const selectedOpt = this.options[this.selectedIndex];
+    const unidad = selectedOpt.getAttribute('data-unidad');
+    if(unidad) row.querySelector('.ing-unidad').value = unidad;
+  };
+}
+
+function guardarReceta() {
+  const ingredientes = [];
+  const filasIngredientes = document.querySelectorAll('#receta-ingredientes-lista > div');
+  
+  filasIngredientes.forEach(function(row) {
+    const select = row.querySelector('.ing-select');
+    const inputCant = row.querySelector('.ing-cant');
+    const inputUnidad = row.querySelector('.ing-unidad');
+    
+    if (select && inputCant) {
+      const idIngrediente = select.value;
+      const cantidad = parseFloat(inputCant.value);
+      const unidadMedida = inputUnidad ? inputUnidad.value : '';
+      
+      if (idIngrediente && !isNaN(cantidad) && cantidad > 0) {
+        ingredientes.push({
+          idIngrediente: idIngrediente,
+          cantidad: cantidad,
+          unidadMedida: unidadMedida,
+          observaciones: ''
+        });
+      }
+    }
+  });
+
+  const datos = {
+    id: document.getElementById('rec-id').value,
+    nombre: document.getElementById('rec-nombre').value,
+    categoria: document.getElementById('rec-categoria').value,
+    porciones: parseInt(document.getElementById('rec-porciones').value) || 1,
+    tiempoPreparacion: parseInt(document.getElementById('rec-tiempo-prep').value) || 0,
+    tiempoCoccion: parseInt(document.getElementById('rec-tiempo-coccion').value) || 0,
+    dificultad: document.getElementById('rec-dificultad').value,
+    tipoAlimentacion: document.getElementById('rec-tipo-alimentacion').value,
+    descripcion: document.getElementById('rec-descripcion').value,
+    foto: document.getElementById('rec-foto').value,
+    linkYoutube: document.getElementById('rec-youtube').value,
+    instrucciones: document.getElementById('rec-instrucciones').value,
+    ingredientes: ingredientes
+  };
+
+  if(!datos.nombre.trim()) { mostrarAlerta('El nombre es obligatorio', 'error'); return; }
+  if(!datos.categoria) { mostrarAlerta('Debe seleccionar una categoría', 'error'); return; }
+  if(ingredientes.length === 0) { 
+    mostrarAlerta('Agregue al menos un ingrediente válido con su cantidad', 'error'); 
+    return; 
+  }
+  
+  llamarBackend('guardarReceta', datos, function(res) {
+    mostrarAlerta(res.mensaje);
+    cerrarModal('modal-receta');
+    cargarRecetas();
+  });
+}
+
+function verReceta(id) {
+  llamarBackend('obtenerRecetaDetalle', id, function(res) {
+    const r = res.datos;
+    document.getElementById('ver-nombre-receta').innerText = r.nombre;
+    document.getElementById('ver-categoria').innerText = r.categoria;
+    document.getElementById('ver-porciones').innerText = r.porciones;
+    document.getElementById('ver-tiempo').innerText = (parseInt(r.tiempoPreparacion) || 0) + (parseInt(r.tiempoCoccion) || 0);
+    document.getElementById('ver-dificultad').innerText = r.dificultad;
+    
+    let ingsHtml = '';
+    if(r.ingredientes && r.ingredientes.length > 0) {
+      r.ingredientes.forEach(function(i) {
+        ingsHtml += '<li><span class="font-semibold">' + i.cantidad + ' ' + (i.unidadMedida || '') + '</span> - ' + i.name + '</li>';
+      });
+    } else {
+      ingsHtml = '<li class="text-gray-400">No hay ingredientes registrados</li>';
+    }
+    document.getElementById('ver-lista-ingredientes').innerHTML = ingsHtml;
+    
+    document.getElementById('ver-instrucciones').innerText = r.instrucciones || 'Sin instrucciones detalladas.';
+    
+    document.getElementById('modal-ver-receta').classList.remove('hidden');
+    document.getElementById('modal-ver-receta').classList.add('flex');
+  });
+}
+
+function editarReceta(id) {
+  cargarCacheIngredientes(function() {
+    llamarBackend('obtenerRecetaDetalle', id, function(res) {
+      const r = res.datos;
+      document.getElementById('rec-id').value = r.id;
+      document.getElementById('rec-nombre').value = r.nombre;
+      
+      cargarCategoriasEnSelect('rec-categoria', r.categoria);
+
+      document.getElementById('rec-porciones').value = r.porciones;
+      document.getElementById('rec-tiempo-prep').value = r.tiempoPreparacion;
+      document.getElementById('rec-tiempo-coccion').value = r.tiempoCoccion;
+      document.getElementById('rec-dificultad').value = r.dificultad;
+      document.getElementById('rec-tipo-alimentacion').value = r.tipoAlimentacion;
+      document.getElementById('rec-descripcion').value = r.descripcion || '';
+      
+      document.getElementById('rec-foto').value = r.foto || '';
+      actualizarVistaPreviaImagen();
+
+      document.getElementById('rec-youtube').value = r.linkYoutube || '';
+      actualizarVistaPreviaVideo();
+
+      document.getElementById('rec-instrucciones').value = r.instrucciones || '';
+      
+      document.getElementById('receta-ingredientes-lista').innerHTML = '';
+      if(r.ingredientes && r.ingredientes.length > 0) {
+        r.ingredientes.forEach(function(ing) {
+          agregarFilaIngrediente(ing);
+        });
+      } else {
+        agregarFilaIngrediente();
+      }
+      
+      document.getElementById('modal-receta').classList.remove('hidden');
+      document.getElementById('modal-receta').classList.add('flex');
+    });
+  });
+}
+
+function eliminarReceta(id) {
+  if(confirm('¿Está seguro de eliminar esta receta?')) {
+    llamarBackend('eliminarReceta', id, function(res) {
+      mostrarAlerta(res.mensaje);
+      cargarRecetas();
+    });
+  }
+}
+
+// ==================== CONSOLIDADO ====================
+function cargarConsolidado() {
+  setDebug('Cargando consolidado...');
+  llamarBackend('obtenerDashboard', null, function(res) {
+    const div = document.getElementById('consolidado-content');
+    if(res.porCategoria && Object.keys(res.porCategoria).length > 0) {
+      let html = '<h3 class="font-bold mb-3">Total de recetas por categoría</h3>';
+      Object.keys(res.porCategoria).forEach(function(cat) {
+        html += '<div class="flex justify-between items-center p-3 bg-gray-50 rounded border-l-4 border-indigo-600 mb-2">';
+        html += '<span class="font-medium">' + cat + '</span>';
+        html += '<span class="text-xl font-bold text-indigo-600">' + res.porCategoria[cat] + ' recetas</span></div>';
+      });
+      div.innerHTML = html;
+    } else {
+      div.innerHTML = '<p class="text-gray-400 text-center">No hay datos disponibles</p>';
+    }
+    setDebug('✅ Consolidado cargado');
+  });
+}
+
+// ==================== REPORTES ====================
+function cargarOpcionesReportes() {
+  setDebug('Cargando opciones de reportes...');
+}
+
+function generarReporte() {
+  const tipo = document.getElementById('reporte-tipo').value;
+  const filtro = document.getElementById('reporte-filtro').value;
+  setDebug('Generando reporte: ' + tipo);
+  
+  llamarBackend('obtenerDatosReporte', {tipo: tipo, filtro: filtro}, function(res) {
+    const preview = document.getElementById('reporte-preview');
+    if(res.datos && res.datos.length > 0) {
+      let html = '<p class="text-green-600 mb-3 font-semibold">✅ Reporte generado: ' + res.datos.length + ' registros</p>';
+      html += '<div class="overflow-x-auto"><table class="w-full text-left border-collapse bg-white rounded shadow-sm text-sm">';
+      
+      const primerItem = res.datos[0];
+      html += '<thead class="bg-gray-100 text-gray-700"><tr>';
+      
+      if(tipo === 'ingredientes') {
+        html += '<th class="p-2 border">Nombre</th><th class="p-2 border">Categoría</th><th class="p-2 border">Unidad</th><th class="p-2 border">Estado</th>';
+      } else if(tipo === 'detalle') {
+        html += '<th class="p-2 border">Receta</th><th class="p-2 border">Porciones</th><th class="p-2 border">Dificultad</th><th class="p-2 border">Ingredientes</th>';
+      } else {
+        html += '<th class="p-2 border">Nombre</th><th class="p-2 border">Categoría</th><th class="p-2 border">Porciones</th><th class="p-2 border">Tiempo Total</th><th class="p-2 border">Dificultad</th>';
+      }
+      html += '</tr></thead><tbody>';
+
+      res.datos.forEach(function(item) {
+        html += '<tr class="border-b hover:bg-gray-50">';
+        if(tipo === 'ingredientes') {
+          html += '<td class="p-2 border font-medium">' + (item.nombre || '-') + '</td>' +
+                  '<td class="p-2 border">' + (item.categoria || '-') + '</td>' +
+                  '<td class="p-2 border">' + (item.unidadMedida || '-') + '</td>' +
+                  '<td class="p-2 border">' + (item.activo || '-') + '</td>';
+        } else if(tipo === 'detalle') {
+          let ings = item.ingredientes ? item.ingredientes.map(i => i.cantidad + ' ' + (i.unidadMedida || '') + ' ' + i.name).join(', ') : '';
+          html += '<td class="p-2 border font-medium">' + (item.nombre || '-') + '</td>' +
+                  '<td class="p-2 border">' + (item.porciones || '-') + '</td>' +
+                  '<td class="p-2 border">' + (item.dificultad || '-') + '</td>' +
+                  '<td class="p-2 border text-xs text-gray-600">' + ings + '</td>';
+        } else {
+          html += '<td class="p-2 border font-medium">' + (item.nombre || '-') + '</td>' +
+                  '<td class="p-2 border">' + (item.categoria || '-') + '</td>' +
+                  '<td class="p-2 border">' + (item.porciones || '-') + '</td>' +
+                  '<td class="p-2 border">' + (item.tiempoTotal || 0) + ' min</td>' +
+                  '<td class="p-2 border">' + (item.dificultad || '-') + '</td>';
+        }
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      preview.innerHTML = html;
+    } else {
+      preview.innerHTML = '<p class="text-gray-400">No hay datos para mostrar</p>';
+    }
+    setDebug('✅ Reporte generado');
+  });
+}
+
+// ==================== CONFIGURACIÓN ====================
+function cargarConfiguracion() {
+  setDebug('Cargando configuración...');
+  llamarBackend('obtenerConfiguracion', null, function(res) {
+    document.getElementById('cfg-nombre-app').value = res.nombreApp || 'Sistema de Gestión de Recetas';
+    document.getElementById('cfg-fecha').value = res.fechaServidor || '';
+    setDebug('✅ Configuración cargada');
+  });
+}
+
+function inicializarSistema() {
+  if(confirm('¿Está seguro de inicializar la base de datos? Se crearán las tablas si no existen.')) {
+    setDebug('Inicializando base de datos...');
+    llamarBackend('inicializarBD', null, function(res) {
+      mostrarAlerta(res.mensaje);
+      setDebug('✅ BD inicializada');
+    });
+  }
+}
+
+// ==================== INIT ====================
+window.onload = function() {
+  setDebug('Iniciando aplicación...');
+  google.script.run
+    .withSuccessHandler(function() {
+      setDebug('✅ Sistema listo - Backend conectado');
+      cargarDashboard();
+    })
+    .withFailureHandler(function(err) {
+      setDebug('❌ Error al iniciar: ' + err.message);
+      mostrarAlerta('Error al conectar con el servidor: ' + err.message, 'error');
+    })
+    .inicializarBD();
+};
+</script>
+</body>
+</html>
